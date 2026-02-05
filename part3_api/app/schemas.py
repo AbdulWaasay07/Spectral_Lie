@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 class DetectRequest(BaseModel):
-    audioBase64: str = Field(
+    audio_base_64: str = Field(
         ..., 
         description="The base64 encoded audio data.",
         example="SUQzBAAAAAAAI1..."
@@ -12,7 +12,7 @@ class DetectRequest(BaseModel):
         description="The language of the audio (e.g., 'English', Hindi').",
         example="English"
     )
-    audioFormat: str = Field(
+    audio_format: str = Field(
         "mp3",
         description="The format of the audio (e.g., 'mp3', 'wav').",
         example="mp3"
