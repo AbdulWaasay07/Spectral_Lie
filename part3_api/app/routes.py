@@ -12,6 +12,8 @@ from .errors import AppError, RateLimitExceeded
 from . import metrics
 from .config import settings
 
+import json
+from .rate_limiter import redis_conn
 logger = structlog.get_logger()
 router = APIRouter()
 
@@ -43,12 +45,31 @@ async def detect_voice_endpoint(
     log = logger.bind(request_id=request_id, api_key_mask=f"{api_key[:4]}...")
     
     try:
+        # Cache check (Disabled deep hash for speed, using first 1000 chars + length)
+        # Fast hash to avoid reading huge tensors if not needed
+        cache_key = f"res:{hash(req.audio_base64[:1000])}_{len(req.audio_base64)}"
+        if redis_conn:
+            cached_res = await redis_conn.get(cache_key)
+            if cached_res:
+                log.info("cache_hit", cache_key=cache_key)
+                cached_data = json.loads(cached_res)
+                # Metrics for cache hit
+                metrics.REQUESTS_TOTAL.labels(status="cache_hit", classification=cached_data["classification"]).inc()
+                metrics.REQUEST_LATENCY.observe(time.time() - start_time) # Still record latency for cache hit
+                return DetectResponse(
+                    classification=cached_data["classification"],
+                    confidence=cached_data["confidence"],
+                    explanation=cached_data["explanation"],
+                    model_version=cached_data["model_version"],
+                    request_id=request_id # Use current request_id for response
+                )
+
         # Rate Limiting (Disabled for maximum speed during evaluation)
         # await check_rate_limit(api_key)
         
-        # Validation checks on size? 
-        # Base64 string length check (approx size: len * 3/4)
-        if len(req.audio_base64) * 0.75 > settings.MAX_AUDIO_SIZE_BYTES:
+        # Validation checks on size 
+        if len(req.audio_base64) * 0.75 > settings.MAX_AUDIO_SIZE_BYTES: # Adjusted for b64 encoding overhead
+             log.error("request_too_large", size=len(req.audio_base64))
              raise HTTPException(status_code=413, detail="Audio file too large")
 
         # Orchestration (CPU bound, run in threadpool)
@@ -64,6 +85,13 @@ async def detect_voice_endpoint(
         
         log.info("request_completed", duration_seconds=duration, classification=result["classification"])
         
+        # Cache storing (5 minutes)
+        if redis_conn:
+            try:
+                await redis_conn.set(cache_key, json.dumps(result), ex=300)
+            except Exception as e:
+                log.warning("cache_store_failed", error=str(e))
+                
         return DetectResponse(
             classification=result["classification"],
             confidence=result["confidence"],

@@ -43,7 +43,7 @@ def generate_explanation(
     # --- Construct Message ---
     
     is_ai = confidence >= threshold
-    verdict_str = "AI-generated" if is_ai else "Human"
+    verdict_str = "AI-Generated" if is_ai else "Human"
     
     # Use winning class confidence for display
     display_conf = confidence if is_ai else (1.0 - confidence)
