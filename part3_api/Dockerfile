@@ -37,10 +37,6 @@ EXPOSE 8000
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PROMETHEUS_MULTIPROC_DIR=/tmp/metrics
-
-# Create directory for prometheus multiprocess mode if needed
-RUN mkdir -p /tmp/metrics
 
 # Command to run the application (Gunicorn + Uvicorn)
 # Reduced workers to 1 to stay under 500MB memory limit
