@@ -5,7 +5,8 @@ class DetectRequest(BaseModel):
     audio_base_64: str = Field(
         ..., 
         description="The base64 encoded audio data.",
-        example="SUQzBAAAAAAAI1..."
+        example="SUQzBAAAAAAAI1...",
+        alias="audioBase64"
     )
     language: str = Field(
         ..., 
@@ -15,8 +16,11 @@ class DetectRequest(BaseModel):
     audio_format: str = Field(
         "mp3",
         description="The format of the audio (e.g., 'mp3', 'wav').",
-        example="mp3"
+        example="mp3",
+        alias="audioFormat"
     )
+    
+    model_config = {"populate_by_name": True}
 
 class DetectResponse(BaseModel):
     classification: str = Field(..., description="Prediction: 'Human' or 'AI-Generated'")
