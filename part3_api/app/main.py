@@ -5,7 +5,7 @@ from prometheus_client import make_asgi_app
 
 from .config import settings
 from .routes import router
-from .rate_limiter import init_redis, close_redis
+from . import rate_limiter
 from . import logging_config # We will assume this exists or configure structlog here
 
 # Configure Structlog (Basic)
@@ -28,12 +28,12 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     # Only initialize Redis, skip heavy model loading to stay under memory limits during startup
-    await init_redis()
+    await rate_limiter.init_redis()
     structlog.get_logger().info("startup_completed", redis_enabled=bool(rate_limiter.redis_conn))
 
 @app.on_event("shutdown")
 async def shutdown():
-    await close_redis()
+    await rate_limiter.close_redis()
 
 # Metrics (Mount Prometheus WSGI app as ASGI)
 metrics_app = make_asgi_app()
