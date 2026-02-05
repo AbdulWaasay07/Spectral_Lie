@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     
     # Validation
     MAX_AUDIO_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
-    MIN_DURATION_SECONDS: float = 3.0
+    MIN_DURATION_SECONDS: float = 1.0
     MAX_DURATION_SECONDS: float = 30.0
     
     # Model Paths (optional, can fallback to hardcoded defaults in Part 1/2)
