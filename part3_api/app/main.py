@@ -5,8 +5,8 @@ from prometheus_client import make_asgi_app
 
 from .config import settings
 from .routes import router
-from . import rate_limiter
-from . import logging_config # We will assume this exists or configure structlog here
+# We will import inside the functions to avoid any possible circular import or scope issues
+# which seem to be plaguing the Render environment.
 
 # Configure Structlog (Basic)
 structlog.configure(
@@ -28,12 +28,21 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     # Only initialize Redis, skip heavy model loading to stay under memory limits during startup
-    await rate_limiter.init_redis()
-    structlog.get_logger().info("startup_completed", redis_enabled=bool(rate_limiter.redis_conn))
+    try:
+        from . import rate_limiter
+        await rate_limiter.init_redis()
+        structlog.get_logger().info("startup_completed")
+    except Exception as e:
+        # Fail gracefully
+        structlog.get_logger().error("startup_failed", error=str(e))
 
 @app.on_event("shutdown")
 async def shutdown():
-    await rate_limiter.close_redis()
+    try:
+        from . import rate_limiter
+        await rate_limiter.close_redis()
+    except:
+        pass
 
 # Metrics (Mount Prometheus WSGI app as ASGI)
 metrics_app = make_asgi_app()
