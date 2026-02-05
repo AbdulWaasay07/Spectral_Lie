@@ -49,6 +49,13 @@ app.include_router(router)
 # Global Exception Handler fallback
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    from fastapi import HTTPException
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail, "request_id": "unknown"}
+        )
+        
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error", "request_id": "unknown"}

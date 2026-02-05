@@ -11,7 +11,7 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
         
     # In a real app, check against database or secure store
     # Here we check against config
-    allowed_keys = settings.API_KEYS.split(",")
+    allowed_keys = [k.strip() for k in settings.API_KEYS.split(",")]
     if api_key_header not in allowed_keys:
         raise UnauthorizedError()
         
