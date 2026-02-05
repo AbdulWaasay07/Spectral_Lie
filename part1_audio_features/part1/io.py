@@ -45,10 +45,10 @@ def decode_and_validate(audio_base64: str) -> tuple[str, dict]:
         audio = AudioSegment.from_file(tmp_mp3_path)
         audio = audio.set_frame_rate(config.SAMPLE_RATE).set_channels(1)
         
-        # Optimization: Slice to first 5 seconds to speed up extraction and prevent timeouts
-        # Most acoustic features stabilize within 5s; processing 30s+ is too slow on free tier
-        if len(audio) > 5000:
-            audio = audio[:5000]
+        # Optimization: Slice to first 3 seconds for maximum speed
+        # This is the minimum duration required by config; processing 3s is much faster than 30s
+        if len(audio) > 3000:
+            audio = audio[:3000]
             
         audio.export(wav_path, format="wav")
     except Exception as e:

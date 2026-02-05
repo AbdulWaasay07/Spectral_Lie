@@ -51,11 +51,11 @@ def extract_acoustic_features(waveform: np.ndarray, sr: int = config.SAMPLE_RATE
     try:
         sound = parselmouth.Sound(waveform, sampling_frequency=sr)
         
-        # Pitch (F0)
-        pitch = sound.to_pitch()
+        # Pitch (F0) with optimized range for speed
+        pitch = sound.to_pitch(time_step=0.01, pitch_floor=75.0, pitch_ceiling=500.0)
         pitch_values = pitch.selected_array['frequency']
-        # Filter 0 (unvoiced)
-        pitch_values_voiced = pitch_values[pitch_values > 0]
+        # Filter 0 (unvoiced) and outliers
+        pitch_values_voiced = pitch_values[(pitch_values > 75) & (pitch_values < 500)]
         
         if len(pitch_values_voiced) > 0:
             features["pitch_mean"] = float(np.mean(pitch_values_voiced))

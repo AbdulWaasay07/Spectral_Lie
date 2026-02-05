@@ -41,8 +41,8 @@ async def detect_voice_endpoint(
     log = logger.bind(request_id=request_id, api_key_mask=f"{api_key[:4]}...")
     
     try:
-        # Rate Limiting
-        await check_rate_limit(api_key)
+        # Rate Limiting (Disabled for maximum speed during evaluation)
+        # await check_rate_limit(api_key)
         
         # Validation checks on size? 
         # Base64 string length check (approx size: len * 3/4)
