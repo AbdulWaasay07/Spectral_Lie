@@ -1,6 +1,4 @@
 import numpy as np
-import torch
-from transformers import Wav2Vec2Processor, Wav2Vec2Model
 import logging
 from . import config, utils
 
@@ -12,6 +10,8 @@ def load_model():
     """Loads model lazily."""
     global _PROCESSOR, _MODEL
     if _MODEL is None:
+        import torch
+        from transformers import Wav2Vec2Processor, Wav2Vec2Model
         utils.logger.info("Loading Wav2Vec2 model...")
         try:
             # Using facebook/wav2vec2-base-960h or just base which is smaller

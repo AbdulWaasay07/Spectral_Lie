@@ -44,6 +44,12 @@ def decode_and_validate(audio_base64: str) -> tuple[str, dict]:
         # Using pydub to verify it's valid audio and convert
         audio = AudioSegment.from_file(tmp_mp3_path)
         audio = audio.set_frame_rate(config.SAMPLE_RATE).set_channels(1)
+        
+        # Optimization: Slice to first 10 seconds to speed up extraction and prevent timeouts
+        # Most acoustic features stabilize within 10s; processing 30s+ is too slow on free tier
+        if len(audio) > 10000:
+            audio = audio[:10000]
+            
         audio.export(wav_path, format="wav")
     except Exception as e:
         # Cleanup
