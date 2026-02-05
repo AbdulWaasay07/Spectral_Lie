@@ -4,13 +4,18 @@ from typing import Optional
 class DetectRequest(BaseModel):
     audio_base64: str = Field(
         ..., 
-        description="Base64-encoded audio file (MP3/WAV)",
+        description="The base64 encoded audio data.",
         example="SUQzBAAAAAAAI1..."
     )
-    language: Optional[str] = Field(
-        None, 
-        description="Optional language hint (English, Hindi, etc.)",
+    language: str = Field(
+        ..., 
+        description="The language of the audio (e.g., 'English', 'Hindi').",
         example="English"
+    )
+    audio_format: str = Field(
+        "mp3",
+        description="The format of the audio (e.g., 'mp3', 'wav').",
+        example="mp3"
     )
 
 class DetectResponse(BaseModel):

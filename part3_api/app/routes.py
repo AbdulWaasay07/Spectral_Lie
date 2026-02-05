@@ -18,11 +18,17 @@ router = APIRouter()
 @router.get("/")
 async def root():
     return {
-        "message": "Welcome to Spectral Lie Voice Detection API",
-        "status": "running",
-        "docs": "/docs"
+        "message": "Spectral Lie Voice Detection API is Running",
+        "endpoints": {
+            "detection": "/detect-voice",
+            "health": "/health/live",
+            "docs": "/docs"
+        },
+        "instructions": "Send a POST request to /detect-voice with x-api-key header and JSON body including language, audio_format, and audio_base64."
     }
 
+# Allow POST to both / and /detect-voice for compatibility with different testers
+@router.post("/", response_model=DetectResponse, include_in_schema=False)
 @router.post("/detect-voice", response_model=DetectResponse)
 async def detect_voice_endpoint(
     req: DetectRequest,
