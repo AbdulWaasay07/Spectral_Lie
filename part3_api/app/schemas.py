@@ -2,26 +2,21 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 class DetectRequest(BaseModel):
-    audio_base64: str = Field(
+    audioBase64: str = Field(
         ..., 
         description="The base64 encoded audio data.",
-        example="SUQzBAAAAAAAI1...",
-        alias="audioBase64"
+        example="SUQzBAAAAAAAI1..."
     )
     language: str = Field(
         ..., 
         description="The language of the audio (e.g., 'English', Hindi').",
         example="English"
     )
-    audio_format: str = Field(
+    audioFormat: str = Field(
         "mp3",
         description="The format of the audio (e.g., 'mp3', 'wav').",
-        example="mp3",
-        alias="audioFormat"
+        example="mp3"
     )
-    
-    class Config:
-        populate_by_name = True # Allows using both the original name and the alias
 
 class DetectResponse(BaseModel):
     classification: str = Field(..., description="Prediction: 'Human' or 'AI-Generated'")
