@@ -8,13 +8,13 @@ import structlog
 logger = structlog.get_logger()
 
 # Global Redis pool (will be initialized in main startup)
-redis_client: redis.Redis | None = None
+redis_conn: redis.Redis | None = None
 
 async def init_redis():
-    global redis_client
-    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    global redis_conn
+    redis_conn = redis.from_url(settings.REDIS_URL, decode_responses=True)
     try:
-        await redis_client.ping()
+        await redis_conn.ping()
         logger.info("redis_connected", url=settings.REDIS_URL)
     except Exception as e:
         logger.error("redis_connection_failed", error=str(e))
@@ -22,16 +22,16 @@ async def init_redis():
         # For this assignment, we'll log it.
 
 async def close_redis():
-    global redis_client
-    if redis_client:
-        await redis_client.close()
+    global redis_conn
+    if redis_conn:
+        await redis_conn.close()
 
 async def check_rate_limit(api_key: str):
     """
     Implements a simple sliding window or fixed window rate limiter.
     Key: rate_limit:{api_key}:{minute_timestamp}
     """
-    if not redis_client:
+    if not redis_conn:
         # If redis is down, fail open (allow request) or closed (deny)
         # We'll fail open for robustness in this demo, but log warning
         logger.warning("redis_unavailable_skipping_rate_limit")
@@ -43,10 +43,10 @@ async def check_rate_limit(api_key: str):
     
     # Increment
     try:
-        count = await redis_client.incr(key)
+        count = await redis_conn.incr(key)
         if count == 1:
             # Set expiry for 60 seconds (plus buffer)
-            await redis_client.expire(key, 90)
+            await redis_conn.expire(key, 90)
             
         if count > settings.RATE_LIMIT_PER_MINUTE:
             logger.warning("rate_limit_exceeded", api_key=api_key, count=count)
