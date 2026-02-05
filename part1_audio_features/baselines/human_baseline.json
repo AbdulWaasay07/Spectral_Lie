@@ -1,0 +1,5 @@
+{
+    "mfcc_mean_0": { "mean": 0.0, "std": 0.0, "median": 0.0, "p25": 0.0, "p75": 0.0 },
+    "pitch_mean": { "mean": 120.0, "std": 30.0, "median": 115.0, "p25": 100.0, "p75": 140.0 },
+    "note": "This is a placeholder. Run build_baselines.py with real data to populate."
+}

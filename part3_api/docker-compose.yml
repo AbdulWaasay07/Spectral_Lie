@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: ../
+      dockerfile: part3_api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      # You can add API keys here or via .env file
+      - LOG_LEVEL=INFO
+    depends_on:
+      - redis
+    volumes:
+      - ./:/app # Mount current dir for development hot-reloading (optional)
+      # We might need to mount the separate parts if we want to edit them live, 
+      # but for production stick to COPY in Dockerfile.
+      # For now, let's rely on the build context.
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always

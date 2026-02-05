@@ -1,0 +1,8 @@
+{
+  "classification": "Human",
+  "confidence": 0.9432,
+  "explanation": "The voice is classified as Human with highly confident probability (0.94). Acoustic features align with human speech patterns.",
+  "model_version": "part2-v1-baseline",
+  "request_id": "3c861ee1-1a87-4da4-acf6-8c27eb4f97ba",
+  "_test_run_at": "2026-02-05T13:28:01.423390"
+}
