@@ -66,13 +66,11 @@ def extract_acoustic_features(waveform: np.ndarray, sr: int = config.SAMPLE_RATE
             features["pitch_std"] = 0.0
             features["voiced_ratio"] = 0.0
 
-        # Jitter
-        # "Get jitter (local)", 0.0001, 0.02, 1.3
+        # Jitter (Optimized for speed)
         pointProcess = call(sound, "To PointProcess (periodic, cc)", 75, 500)
         features["jitter_local"] = call(pointProcess, "Get jitter (local)", 0.0, 0.0, 0.0001, 0.02, 1.3)
         
-        # Shimmer
-        # "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6
+        # Shimmer (Optimized for speed)
         features["shimmer_local"] = call([sound, pointProcess], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6)
         
         # HNR

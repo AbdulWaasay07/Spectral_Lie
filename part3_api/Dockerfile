@@ -44,5 +44,5 @@ ENV VECLIB_MAXIMUM_THREADS=1
 ENV NUMEXPR_NUM_THREADS=1
 
 # Command to run the application (Gunicorn + Uvicorn)
-# Reduced workers to 1 to stay under 500MB memory limit
-CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 1 --preload app.main:app -b 0.0.0.0:${PORT:-8000} --timeout 120"]
+# Increased to 2 workers to handle validator concurrency; still safe for 512MB RAM if deep_features=False
+CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 2 --preload app.main:app -b 0.0.0.0:${PORT:-8000} --timeout 300"]

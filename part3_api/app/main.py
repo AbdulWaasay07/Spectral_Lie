@@ -49,7 +49,12 @@ app.include_router(router)
 # Global Exception Handler fallback
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
     from fastapi import HTTPException
+    
+    # Log the full traceback for Render logs
+    structlog.get_logger().error("unhandled_exception", error=str(exc), traceback=traceback.format_exc())
+    
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -58,5 +63,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "request_id": "unknown"}
+        content={
+            "detail": "Internal Server Error", 
+            "error_type": exc.__class__.__name__,
+            "error_message": str(exc),
+            "request_id": "unknown"
+        }
     )
