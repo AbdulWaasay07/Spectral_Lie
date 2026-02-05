@@ -28,6 +28,10 @@ RUN pip install --no-cache-dir -e /part2_detection
 # Copy Part 3 application code
 COPY part3_api .
 
+# Pre-download models to bake them into the image
+# This prevents timeouts and OOM during first request on Free tier
+RUN python download_models.py
+
 # Expose port
 EXPOSE 8000
 
@@ -39,4 +43,5 @@ ENV PROMETHEUS_MULTIPROC_DIR=/tmp/metrics
 RUN mkdir -p /tmp/metrics
 
 # Command to run the application (Gunicorn + Uvicorn)
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "app.main:app", "-b", "0.0.0.0:8000", "--timeout", "60"]
+# Reduced workers to 1 to stay under 500MB memory limit
+CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 1 --preload app.main:app -b 0.0.0.0:${PORT:-8000} --timeout 120"]

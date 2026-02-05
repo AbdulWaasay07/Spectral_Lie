@@ -17,6 +17,8 @@ services:
         value: INFO
       - key: PORT
         value: 8000
+      - key: USE_DEEP_FEATURES
+        value: "False"
 
   - type: redis
     name: cache
