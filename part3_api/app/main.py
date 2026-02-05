@@ -2,13 +2,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import structlog
 from prometheus_client import make_asgi_app
+import traceback
 
 from .config import settings
 from .routes import router
-# We will import inside the functions to avoid any possible circular import or scope issues
-# which seem to be plaguing the Render environment.
 
-# Configure Structlog (Basic)
+# Simple Structlog Config
 structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
@@ -20,50 +19,51 @@ structlog.configure(
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
-    description="Voice Detection API checking for AI-generated artifacts.",
+    description="Spectral Lie Voice Detection API",
     debug=settings.DEBUG
 )
 
-# Startup/Shutdown
+# (Snippet of the current main.py on your machine)
 @app.on_event("startup")
-async def startup():
-    # Only initialize Redis, skip heavy model loading to stay under memory limits during startup
+async def startup_event():
+    print("API Starting up...")
     try:
         from . import rate_limiter
         await rate_limiter.init_redis()
-        structlog.get_logger().info("startup_completed")
+        print("Redis initialization attempted.")
     except Exception as e:
-        # Fail gracefully
-        structlog.get_logger().error("startup_failed", error=str(e))
+        print(f"Startup warning: {e}")
 
 @app.on_event("shutdown")
-async def shutdown():
+async def shutdown_event():
     try:
         from . import rate_limiter
         await rate_limiter.close_redis()
     except:
         pass
 
-# Metrics (Mount Prometheus WSGI app as ASGI)
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+# Prometheus Metrics
+app.mount("/metrics", make_asgi_app())
 
-# Include Routes
+# App Routes
 app.include_router(router)
 
-# Global Exception Handler fallback
+# Robust Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
     from fastapi import HTTPException
     
-    # Log the full traceback for Render logs
-    structlog.get_logger().error("unhandled_exception", error=str(exc), traceback=traceback.format_exc())
+    # Detailed logging for Render
+    structlog.get_logger().error(
+        "unhandled_exception", 
+        error=str(exc), 
+        traceback=traceback.format_exc()
+    )
     
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
-            content={"detail": exc.detail, "request_id": "unknown"}
+            content={"detail": exc.detail}
         )
         
     return JSONResponse(
@@ -71,7 +71,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "detail": "Internal Server Error", 
             "error_type": exc.__class__.__name__,
-            "error_message": str(exc),
-            "request_id": "unknown"
+            "error_message": str(exc)
         }
     )

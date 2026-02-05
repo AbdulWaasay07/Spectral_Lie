@@ -6,7 +6,7 @@ import structlog
 
 from .schemas import DetectRequest, DetectResponse
 from .auth import get_api_key
-from .rate_limiter import check_rate_limit
+from . import rate_limiter
 from .orchestrator import detect_voice
 from .errors import AppError, RateLimitExceeded
 from . import metrics
@@ -14,7 +14,6 @@ from .config import settings
 
 import json
 import hashlib
-from . import rate_limiter
 logger = structlog.get_logger()
 router = APIRouter()
 
