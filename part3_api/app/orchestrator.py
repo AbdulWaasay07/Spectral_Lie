@@ -58,3 +58,28 @@ def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
     except Exception as e:
         logger.error("inference_failed", request_id=request_id, error=str(e))
         raise InferenceError(str(e))
+
+def preload_models():
+    """
+    Triggers lazy loading of models in part1 and part2.
+    Called on API startup.
+    """
+    if part1:
+        try:
+            from part1 import config as p1_config
+            if p1_config.USE_DEEP_FEATURES:
+                from part1.features_deep import load_model
+                load_model()
+                logger.info("part1_model_preloaded")
+            else:
+                logger.info("part1_deep_model_skipped_by_config")
+        except Exception as e:
+            logger.error("part1_preload_failed", error=str(e))
+    
+    if part2:
+        try:
+            from part2.utils import load_artifacts
+            load_artifacts()
+            logger.info("part2_model_preloaded")
+        except Exception as e:
+            logger.error("part2_preload_failed", error=str(e))

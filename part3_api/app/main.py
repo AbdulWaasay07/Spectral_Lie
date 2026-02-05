@@ -28,6 +28,12 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     await init_redis()
+    # Pre-loading models to prevent slow first response
+    try:
+        from .orchestrator import preload_models
+        preload_models()
+    except Exception as e:
+        structlog.get_logger().error("model_preload_failed", error=str(e))
 
 @app.on_event("shutdown")
 async def shutdown():

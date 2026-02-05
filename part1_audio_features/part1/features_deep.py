@@ -19,8 +19,15 @@ def load_model():
             model_name = "facebook/wav2vec2-base" 
             _PROCESSOR = Wav2Vec2Processor.from_pretrained(model_name)
             _MODEL = Wav2Vec2Model.from_pretrained(model_name)
+            
+            # Apply dynamic quantization to reduce memory footprint (from ~360MB to ~180MB)
+            # This is crucial for running on memory-constrained environments like Render Free tier
+            _MODEL = torch.quantization.quantize_dynamic(
+                _MODEL, {torch.nn.Linear}, dtype=torch.qint8
+            )
+            
             _MODEL.eval()  # Set to eval mode
-            utils.logger.info("Wav2Vec2 model loaded.")
+            utils.logger.info("Wav2Vec2 model loaded and quantized.")
         except Exception as e:
             utils.logger.error(f"Failed to load Wav2Vec2 model: {e}")
             raise e

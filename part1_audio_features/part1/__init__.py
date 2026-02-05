@@ -26,7 +26,12 @@ def extract_features(audio_base64: str, language_hint: Optional[str] = None) -> 
         acoustic = features_acoustic.extract_acoustic_features(waveform, sr=config.SAMPLE_RATE)
         
         # 4. Deep Embeddings
-        embeddings = features_deep.extract_deep_embeddings(waveform, sr=config.SAMPLE_RATE)
+        if config.USE_DEEP_FEATURES:
+            embeddings = features_deep.extract_deep_embeddings(waveform, sr=config.SAMPLE_RATE)
+        else:
+            # Return dummy embeddings to maintain schema compatibility
+            embeddings = np.zeros(1536, dtype=np.float32)
+            utils.logger.debug("Skipping deep embeddings (disabled in config)")
         
         # 5. Bundle
         feat_bundle = bundle.FeatureBundle(

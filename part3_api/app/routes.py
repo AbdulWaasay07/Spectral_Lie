@@ -15,6 +15,14 @@ from .config import settings
 logger = structlog.get_logger()
 router = APIRouter()
 
+@router.get("/")
+async def root():
+    return {
+        "message": "Welcome to Spectral Lie Voice Detection API",
+        "status": "running",
+        "docs": "/docs"
+    }
+
 @router.post("/detect-voice", response_model=DetectResponse)
 async def detect_voice_endpoint(
     req: DetectRequest,

@@ -11,6 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(os.path.dirname(BASE_DIR), "temp_audio")
 
 # Feature Extraction
+USE_DEEP_FEATURES = os.getenv("USE_DEEP_FEATURES", "False").lower() == "true"
 N_MFCC = 13
 HOP_LENGTH = 512
 N_FFT = 2048
