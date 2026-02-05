@@ -44,5 +44,6 @@ ENV VECLIB_MAXIMUM_THREADS=1
 ENV NUMEXPR_NUM_THREADS=1
 
 # Command to run the application (Gunicorn + Uvicorn)
-# Increased to 2 workers to handle validator concurrency; still safe for 512MB RAM if deep_features=False
-CMD ["sh", "-c", "gunicorn -k uvicorn.workers.UvicornWorker -w 2 --preload app.main:app -b 0.0.0.0:${PORT:-8000} --timeout 300"]
+# Using 1 worker for absolute memory safety on 512MB Free tier.
+# '--preload' helps but the primary fix is removing heavy startup tasks in main.py.
+CMD ["sh", "-c", "exec gunicorn -k uvicorn.workers.UvicornWorker -w 1 --preload app.main:app -b 0.0.0.0:${PORT:-8000} --timeout 300"]

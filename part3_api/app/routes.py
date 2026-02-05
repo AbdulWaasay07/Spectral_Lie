@@ -13,7 +13,8 @@ from . import metrics
 from .config import settings
 
 import json
-from .rate_limiter import redis_conn
+import hashlib
+from . import rate_limiter
 logger = structlog.get_logger()
 router = APIRouter()
 
@@ -45,24 +46,26 @@ async def detect_voice_endpoint(
     log = logger.bind(request_id=request_id, api_key_mask=f"{api_key[:4]}...")
     
     try:
-        # Cache check (Disabled deep hash for speed, using first 1000 chars + length)
-        # Fast hash to avoid reading huge tensors if not needed
-        cache_key = f"res:{hash(req.audio_base64[:1000])}_{len(req.audio_base64)}"
-        if redis_conn:
-            cached_res = await redis_conn.get(cache_key)
-            if cached_res:
-                log.info("cache_hit", cache_key=cache_key)
-                cached_data = json.loads(cached_res)
-                # Metrics for cache hit
-                metrics.REQUESTS_TOTAL.labels(status="cache_hit", classification=cached_data["classification"]).inc()
-                metrics.REQUEST_LATENCY.observe(time.time() - start_time) # Still record latency for cache hit
-                return DetectResponse(
-                    classification=cached_data["classification"],
-                    confidence=cached_data["confidence"],
-                    explanation=cached_data["explanation"],
-                    model_version=cached_data["model_version"],
-                    request_id=request_id # Use current request_id for response
-                )
+        # Cache check using MD5 for stable keys across worker restarts
+        cache_key = f"res:{hashlib.md5(req.audio_base64.encode()).hexdigest()}"
+        
+        if rate_limiter.redis_conn:
+            try:
+                cached_res = await rate_limiter.redis_conn.get(cache_key)
+                if cached_res:
+                    log.info("cache_hit", cache_key=cache_key)
+                    cached_data = json.loads(cached_res)
+                    metrics.REQUESTS_TOTAL.labels(status="cache_hit", classification=cached_data["classification"]).inc()
+                    metrics.REQUEST_LATENCY.observe(time.time() - start_time)
+                    return DetectResponse(
+                        classification=cached_data["classification"],
+                        confidence=cached_data["confidence"],
+                        explanation=cached_data["explanation"],
+                        model_version=cached_data["model_version"],
+                        request_id=request_id
+                    )
+            except Exception as e:
+                log.warning("cache_read_failed", error=str(e))
 
         # Rate Limiting (Disabled for maximum speed during evaluation)
         # await check_rate_limit(api_key)
@@ -86,9 +89,9 @@ async def detect_voice_endpoint(
         log.info("request_completed", duration_seconds=duration, classification=result["classification"])
         
         # Cache storing (5 minutes)
-        if redis_conn:
+        if rate_limiter.redis_conn:
             try:
-                await redis_conn.set(cache_key, json.dumps(result), ex=300)
+                await rate_limiter.redis_conn.set(cache_key, json.dumps(result), ex=300)
             except Exception as e:
                 log.warning("cache_store_failed", error=str(e))
                 

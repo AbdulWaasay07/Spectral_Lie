@@ -12,14 +12,17 @@ redis_conn: redis.Redis | None = None
 
 async def init_redis():
     global redis_conn
-    redis_conn = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    if not settings.REDIS_URL:
+        logger.warning("REDIS_URL_empty_skipping_initialization")
+        return
+        
     try:
+        redis_conn = redis.from_url(settings.REDIS_URL, decode_responses=True)
         await redis_conn.ping()
         logger.info("redis_connected", url=settings.REDIS_URL)
     except Exception as e:
         logger.error("redis_connection_failed", error=str(e))
-        # We don't crash, but rate limiting might be disabled or fail open/closed
-        # For this assignment, we'll log it.
+        redis_conn = None # Ensure it's None if connection failed
 
 async def close_redis():
     global redis_conn

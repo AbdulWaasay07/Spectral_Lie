@@ -27,13 +27,9 @@ app = FastAPI(
 # Startup/Shutdown
 @app.on_event("startup")
 async def startup():
+    # Only initialize Redis, skip heavy model loading to stay under memory limits during startup
     await init_redis()
-    # Pre-loading models to prevent slow first response
-    try:
-        from .orchestrator import preload_models
-        preload_models()
-    except Exception as e:
-        structlog.get_logger().error("model_preload_failed", error=str(e))
+    structlog.get_logger().info("startup_completed", redis_enabled=bool(rate_limiter.redis_conn))
 
 @app.on_event("shutdown")
 async def shutdown():
