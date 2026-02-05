@@ -6,17 +6,18 @@ class DetectRequest(BaseModel):
         ..., 
         description="The base64 encoded audio data.",
         example="SUQzBAAAAAAAI1...",
-        alias="audio_base64_format" # Support both names just in case
+        alias="audioBase64"
     )
     language: str = Field(
         ..., 
-        description="The language of the audio (e.g., 'English', 'Hindi').",
+        description="The language of the audio (e.g., 'English', Hindi').",
         example="English"
     )
     audio_format: str = Field(
         "mp3",
         description="The format of the audio (e.g., 'mp3', 'wav').",
-        example="mp3"
+        example="mp3",
+        alias="audioFormat"
     )
     
     class Config:

@@ -24,7 +24,7 @@ async def root():
             "health": "/health/live",
             "docs": "/docs"
         },
-        "instructions": "Send a POST request to /detect-voice with x-api-key header and JSON body including language, audio_format, and audio_base64."
+        "instructions": "Send a POST request to /detect-voice with x-api-key header and JSON body including language, audioFormat, and audioBase64."
     }
 
 # Allow POST to both / and /detect-voice for compatibility with different testers
