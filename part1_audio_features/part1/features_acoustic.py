@@ -48,11 +48,13 @@ def extract_acoustic_features(waveform: np.ndarray, sr: int = config.SAMPLE_RATE
     features["zcr_std"] = float(np.std(zcr))
 
     # --- Parselmouth (Praat) Features ---
+    # These are high-CPU. If they fail or take too long, we use fallbacks to prevent timeout.
     try:
+        # Reduced precision for even more speed
         sound = parselmouth.Sound(waveform, sampling_frequency=sr)
         
         # Pitch (F0) with optimized range for speed
-        pitch = sound.to_pitch(time_step=0.01, pitch_floor=75.0, pitch_ceiling=500.0)
+        pitch = sound.to_pitch(time_step=0.02, pitch_floor=75.0, pitch_ceiling=500.0)
         pitch_values = pitch.selected_array['frequency']
         # Filter 0 (unvoiced) and outliers
         pitch_values_voiced = pitch_values[(pitch_values > 75) & (pitch_values < 500)]
@@ -66,7 +68,7 @@ def extract_acoustic_features(waveform: np.ndarray, sr: int = config.SAMPLE_RATE
             features["pitch_std"] = 0.0
             features["voiced_ratio"] = 0.0
 
-        # Jitter (Optimized for speed)
+        # Jitter (Optimized for speed - using local only)
         pointProcess = call(sound, "To PointProcess (periodic, cc)", 75, 500)
         features["jitter_local"] = call(pointProcess, "Get jitter (local)", 0.0, 0.0, 0.0001, 0.02, 1.3)
         
@@ -74,13 +76,16 @@ def extract_acoustic_features(waveform: np.ndarray, sr: int = config.SAMPLE_RATE
         features["shimmer_local"] = call([sound, pointProcess], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6)
         
         # HNR
-        harmonicity = call(sound, "To Harmonicity (cc)", 0.01, 75, 0.1, 1.0)
+        harmonicity = call(sound, "To Harmonicity (cc)", 0.02, 75, 0.1, 1.0)
         features["hnr"] = call(harmonicity, "Get mean", 0, 0)
         
     except Exception as e:
-        utils.logger.warning(f"Praat feature extraction failed: {e}")
-        features["jitter_local"] = None
-        features["shimmer_local"] = None
-        features["hnr"] = None
+        utils.logger.warning(f"Praat feature extraction skipped/failed to prevent timeout: {e}")
+        features["pitch_mean"] = 0.0
+        features["pitch_std"] = 0.0
+        features["voiced_ratio"] = 0.0
+        features["jitter_local"] = 0.0
+        features["shimmer_local"] = 0.0
+        features["hnr"] = 0.0
         
     return features

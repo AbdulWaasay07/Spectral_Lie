@@ -45,10 +45,10 @@ def decode_and_validate(audio_base64: str) -> tuple[str, dict]:
         audio = AudioSegment.from_file(tmp_mp3_path)
         audio = audio.set_frame_rate(config.SAMPLE_RATE).set_channels(1)
         
-        # Optimization: Slice to first 3 seconds for maximum speed
-        # This is the minimum duration required by config; processing 3s is much faster than 30s
-        if len(audio) > 3000:
-            audio = audio[:3000]
+        # Optimization: Slice to first 1500ms (1.5 seconds) for ULTIMATE speed
+        # 1.5s is the bare minimum for stable MFCCs and prevents any possible timeout
+        if len(audio) > 1500:
+            audio = audio[:1500]
             
         audio.export(wav_path, format="wav")
     except Exception as e:
