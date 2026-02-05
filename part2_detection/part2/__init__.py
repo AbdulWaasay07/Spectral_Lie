@@ -48,7 +48,7 @@ def infer(features: FeatureBundle) -> Dict[str, Any]:
     winner_proba = proba if is_fake else (1.0 - proba)
     
     return {
-        "classification": "AI-generated" if is_fake else "Human",
+        "classification": "AI-Generated" if is_fake else "Human",
         "confidence": round(float(winner_proba), 4),
         "explanation": explanation_text,
         "model_version": config.MODEL_VERSION,
