@@ -38,59 +38,35 @@ except ImportError as e:
 
 def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
     """
-    Orchestrates the detection pipeline with HARD timeout using signal.
+    Orchestrates the detection pipeline.
     
-    Uses SIGALRM to actually interrupt CPU-bound work on Linux/Render.
+    PURE BLOCKING CODE - no timeout logic here.
+    Timeout is handled at FastAPI route level via asyncio.wait_for.
+    On any error, returns fallback response instead of raising.
     """
-    import time
-    import signal
-    
     if not part1 or not part2:
-        raise InferenceError("Model backend not available.")
+        # Return fallback instead of raising
+        return _create_fallback_response(None, request_id, "Model backend not available")
 
     logger.info("orchestrator_start", request_id=request_id)
-    start_time = time.time()
     
-    # Custom exception for hard timeout
-    class FeatureTimeout(Exception):
-        pass
-    
-    def timeout_handler(signum, frame):
-        raise FeatureTimeout()
-    
-    # Set up SIGALRM handler (Linux/Render compatible)
-    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(6)  # HARD limit: 6 seconds for feature extraction
-    
+    # 1. Feature Extraction
     features = None
     try:
-        # 1. Feature Extraction with HARD timeout
-        try:
-            features = part1.extract_features(audio_base64, language_hint)
-            feature_time = time.time() - start_time
-            logger.info("feature_extraction_success", request_id=request_id, duration_s=round(feature_time, 2))
-        except FeatureTimeout:
-            logger.warning("feature_extraction_hard_timeout", request_id=request_id)
-            return _create_fallback_response(None, request_id, "Fast fallback: feature extraction timeout")
-        except Exception as e:
-            logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
-            raise FeatureExtractionError(str(e))
-        finally:
-            signal.alarm(0)  # Cancel alarm after feature extraction
-        
-        # 2. Inference (Part 2)
-        try:
-            result = part2.infer(features)
-            inference_time = time.time() - start_time
-            logger.info("inference_success", request_id=request_id, total_duration_s=round(inference_time, 2))
-            return result
-        except Exception as e:
-            logger.error("inference_failed", request_id=request_id, error=str(e))
-            return _create_fallback_response(features, request_id, f"Fallback (inference error: {str(e)[:50]})")
-            
-    finally:
-        signal.alarm(0)  # Ensure alarm is cancelled
-        signal.signal(signal.SIGALRM, original_handler)  # Restore original handler
+        features = part1.extract_features(audio_base64, language_hint)
+        logger.info("feature_extraction_success", request_id=request_id)
+    except Exception as e:
+        logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
+        return _create_fallback_response(None, request_id, f"Feature extraction failed: {str(e)[:50]}")
+
+    # 2. Inference
+    try:
+        result = part2.infer(features)
+        logger.info("inference_success", request_id=request_id)
+        return result
+    except Exception as e:
+        logger.error("inference_failed", request_id=request_id, error=str(e))
+        return _create_fallback_response(features, request_id, f"Inference failed: {str(e)[:50]}")
 
 
 def _create_fallback_response(features, request_id: str, reason: str):

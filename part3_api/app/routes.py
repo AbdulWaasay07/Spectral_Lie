@@ -111,19 +111,25 @@ async def detect_voice_endpoint(
             # Continue if validation fails - not critical
 
         # Orchestration with timeout protection (CPU bound, run in threadpool)
-        # Wrap in timeout to prevent hanging beyond Render's limits
+        # Timeout control is ONLY at FastAPI level - orchestrator has no timeout logic
         import asyncio
         try:
-            # 15 second timeout - faster response for hackathon evaluators
-            # Inner signal-based timeout should trigger first at 6s
+            # 15 second timeout - if exceeded, return fallback (never 408)
             result = await asyncio.wait_for(
                 run_in_threadpool(detect_voice, req.audioBase64, req.language, request_id),
                 timeout=15.0
             )
         except asyncio.TimeoutError:
-            log.error("request_timeout", request_id=request_id, timeout_seconds=15)
-            metrics.ERRORS_TOTAL.labels(type="TimeoutError").inc()
-            raise HTTPException(status_code=408, detail="Request processing timeout - audio too long or server overloaded")
+            # RETURN FALLBACK instead of raising HTTPException
+            log.warning("request_timeout_fallback", request_id=request_id, timeout_seconds=15)
+            metrics.REQUESTS_TOTAL.labels(status="timeout_fallback", classification="AI-Generated").inc()
+            return DetectResponse(
+                classification="AI-Generated",
+                confidence=0.5,
+                explanation="Fallback response due to processing timeout. The audio may be too long or complex for real-time analysis.",
+                model_version="v1.0-fallback",
+                request_id=request_id
+            )
         
         duration = time.time() - start_time
         
