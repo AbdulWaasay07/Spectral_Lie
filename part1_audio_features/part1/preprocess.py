@@ -11,6 +11,12 @@ def preprocess_audio(wav_path: str) -> np.ndarray:
         # Load audio (already converted to 16k mono by io.py, but safe reload)
         y, sr = librosa.load(wav_path, sr=config.SAMPLE_RATE, mono=True)
         
+        # 0. Truncate to first 10 seconds for speed (Render timeout protection)
+        max_samples = 10 * config.SAMPLE_RATE  # 10 seconds
+        if len(y) > max_samples:
+            utils.logger.info(f"Truncating audio from {len(y)/sr:.1f}s to 10s for speed")
+            y = y[:max_samples]
+        
         # 1. Trim Silence
         # top_db=60 is standard, but we want to be conservative to keep micro-pauses
         # Prompt says "low amplitude threshold but conservative"
