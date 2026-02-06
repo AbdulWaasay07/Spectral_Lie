@@ -1,0 +1,7 @@
+{
+  "classification": "AI-generated",
+  "confidence": 1.0,
+  "explanation": "The voice is likely AI-generated (confidence 1.00). Key signals: Extremely high harmonicity (clean synthesis).",
+  "model_version": "part2-v1-baseline",
+  "decision_threshold": 0.5
+}

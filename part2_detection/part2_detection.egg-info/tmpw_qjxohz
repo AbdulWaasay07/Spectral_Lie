@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: part2_detection
+Version: 0.1.0
+Summary: Part 2: Detection Model & Expalinability for AI Voice Detection
+Requires-Python: >=3.10
+Requires-Dist: scikit-learn>=1.2
+Requires-Dist: torch>=2.0.0
+Requires-Dist: torchmetrics>=0.11
+Requires-Dist: numpy>=1.24
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

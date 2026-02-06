@@ -1,0 +1,55 @@
+# SPECTRAL LIE: PROJECT OVERVIEW & WORKFLOW
+
+## 🏗️ Codebase Overview
+
+### 1. Part 1: Audio Feature Engineering (/part1_audio_features)
+Responsibility: Transform raw Base64 audio into a structured mathematical representation.
+
+- part1/__init__.py -> extract_features(): The master orchestrator. It receives Base64 data and sequentially calls the IO, Preprocessing, and Extraction sub-modules.
+- io.py -> decode_and_validate(): Safely decodes Base64, detects audio headers, and converts the data into a standard WAV format using pydub.
+- preprocess.py -> preprocess_audio(): Resamples audio to a uniform 16kHz and normalizes amplitude to ensure consistency across different microphones.
+- features_acoustic.py -> extract_acoustic_features(): The core calculation engine. It extracts:
+    - MFCCs (13 bands): Spectral shape of the voice.
+    - Jitter & Shimmer: Micro-tremors in pitch and volume (crucial for detecting human voice "warmth").
+    - HNR (Harmonics-to-Noise Ratio): Measures the "clarity" of the voice vs. synthesis artifacts.
+- features_deep.py -> extract_deep_embeddings(): Uses a pre-trained Transformer model (Wav2Vec2) to extract high-dimensional "deep" features that capture semantic patterns.
+
+### 2. Part 2: Detection & Intelligence (/part2_detection)
+Responsibility: Analyze features to produce a verdict and a calibrated confidence score.
+
+- part2/model.py -> SimpleClassifier: A PyTorch Neural Network. It uses linear layers with Layer Normalization to process the 92-dimensional acoustic feature vector.
+- part2/calibrator.py -> TemperatureScaler: Implements Platt Scaling. It takes the raw output (logits) and applies a learnable scale and bias to ensure the final probability accurately reflects true likelihood (0.4–0.9 range).
+- part2/explain.py -> generate_explanation(): A rule-based engine that compares extracted features against human baselines. It explains a "Human" verdict by noting "natural pitch stability" or an "AI" verdict by noting "robotic spectral smoothness."
+- train_model.py: The training pipeline. It uses Strong Label Smoothing (0.2) and Weight Decay to train a model that is robust and never "overconfident" in its predictions.
+- tools/generate_data.py: A sophisticated simulator that generates millions of synthetic voice profiles with realistic overlap to stress-test the classifier.
+
+### 3. Part 3: Production API (/part3_api)
+Responsibility: Serving the modules via a high-performance REST API.
+
+- app/main.py: The entry point for the FastAPI server. It defines the /detect-voice route.
+- app/services/detection_service.py: The "Glue" code. It imports Part 1 and Part 2, passing data between them and handling errors gracefully.
+- docker-compose.yml: Orchestration logic. It launches the API and a Redis instance for fast result caching and performance metrics tracking.
+
+---
+
+## 🔄 The Full Workflow
+
+When you run `python run_test.py`, the following "Life of a Request" occurs:
+
+1. Transport: The client script reads test_audio.b64 and sends it as a JSON payload to the FastAPI server.
+2. Ingestion: FastAPI validates the X-API-Key. If valid, it passes the Base64 string to the Feature Engineering module.
+3. Extraction: 
+    - The audio is converted to a waveform.
+    - 92 acoustic data points (MFCC, Jitter, Shimmer, Pitch) are calculated.
+4. Standardization: The features are passed into a StandardScaler (scaler.pkl), which shifts and scales the values so they match the distribution the model was trained on.
+5. Neural Processing: The standardized vector is fed through the Neural Network.
+6. Calibration: The raw network score is "calibrated" by the Platt Scaler. This ensures if the model says 0.85, there is actually an ~85% chance the prediction is correct.
+7. Reasoning: The Explainability Engine looks at the features. It sees, for example, that the HNR (clarity) is very high, and adds "clean synthesis signals" to the explanation text.
+8. Delivery: The API bundles the classification, confidence, and explanation into a JSON response and returns it to the client.
+
+---
+
+## 📊 Key Implementation Highlights
+- Platt Scaling: Unlike basic models that just output 0 or 1, our system is mathematically tuned to provide honest uncertainty.
+- Micro-Animation Ready: The API returns enough metadata to trigger UI animations (like spectral waves) based on the confidence level.
+- Enterprise Security: Built-in API key middleware and Docker isolation for secure deployments.

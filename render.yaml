@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: spectral-lie-api
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: part3_api/Dockerfile
+    plan: free
+    envVars:
+      # Redis is optional - API works without it
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: cache
+      #     property: connectionString
+      - key: API_KEYS
+        value: "test-key-123,development-key-456"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PORT
+        value: 8000
+      - key: USE_DEEP_FEATURES
+        value: "False"
+
+  # Redis (optional - for caching only)
+  # Commented out to allow standalone deployment
+  # - type: redis
+  #   name: cache
+  #   plan: free
+  #   ipAllowList: []

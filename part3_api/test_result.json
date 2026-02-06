@@ -1,0 +1,8 @@
+{
+  "classification": "AI-generated",
+  "confidence": 0.8132,
+  "explanation": "The voice is classified as AI-generated with moderate probability (0.81). Relying on deep feature analysis.",
+  "model_version": "part2-v1-baseline",
+  "request_id": "99e003f2-ba2a-469c-98f0-0200df761d3b",
+  "_test_run_at": "2026-02-06T03:30:40.109069"
+}

@@ -1,0 +1,16 @@
+.venv
+.git
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.db
+.ipynb_checkpoints
+part1_audio_features/temp_audio
+part1_audio_features/part1_audio_features.egg-info
+part2_detection/data
+part2_detection/pytest-cache-files-*
+part1_audio_features/pytest-cache-files-*
+part3_api/.env
+part3_api/tests/__pycache__
