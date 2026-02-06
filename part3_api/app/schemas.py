@@ -2,16 +2,19 @@ from pydantic import BaseModel, Field, ConfigDict, AliasChoices
 from typing import Optional
 
 class DetectRequest(BaseModel):
-    # Accept BOTH "audioBase64" (camelCase) AND "audio_base64" (snake_case)
+    # Accept both "audioBase64" (camelCase) and "audio_base_64" (snake_case)
+    model_config = ConfigDict(populate_by_name=True)
+    # This ensures we can use either the field name OR the alias for validation
+    
     audioBase64: str = Field(
         ..., 
-        validation_alias=AliasChoices("audioBase64", "audio_base64"),
+        validation_alias=AliasChoices("audioBase64", "audio_base_64"),
         description="The base64 encoded audio data.",
         example="SUQzBAAAAAAAI1..."
     )
     language: str = Field(
         ..., 
-        description="The language of the audio (e.g., 'English', Hindi').",
+        description="The language of the audio (e.g., 'English', 'Hindi').",
         example="English"
     )
     audioFormat: str = Field(
