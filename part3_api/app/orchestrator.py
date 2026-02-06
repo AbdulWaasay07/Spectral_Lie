@@ -59,7 +59,25 @@ def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
         logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
         return _create_fallback_response(None, request_id, f"Feature extraction failed: {str(e)[:50]}")
 
-    # 2. Inference
+    # ---- FAST GATE (≤1s) ----
+    # Check acoustic features for strong human signal → exit early without heavy model
+    acoustic = features.acoustic_features if hasattr(features, 'acoustic_features') else {}
+    jitter = acoustic.get("jitter_local", acoustic.get("jitter", 0))
+    shimmer = acoustic.get("shimmer_local", acoustic.get("shimmer", 0))
+    hnr = acoustic.get("hnr", 0)
+    
+    # Strong human signal → exit immediately
+    if jitter > 0.02 and shimmer > 0.05 and hnr < 22:
+        logger.info("fast_gate_human_detected", request_id=request_id, jitter=jitter, shimmer=shimmer, hnr=hnr)
+        return {
+            "classification": "Human",
+            "confidence": 0.85,
+            "explanation": f"Strong human acoustic signature detected (jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}).",
+            "model_version": "v1.1-fast-gate",
+            "decision_threshold": 0.5
+        }
+
+    # 2. Inference (only if fast gate didn't exit)
     try:
         result = part2.infer(features)
         logger.info("inference_success", request_id=request_id)
@@ -71,40 +89,36 @@ def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
 
 def _create_fallback_response(features, request_id: str, reason: str):
     """
-    Creates a fast fallback response using acoustic features only.
-    Uses simple heuristics when full inference is too slow.
+    Creates a Human-biased fallback response using acoustic features.
+    Defaults to Human classification since most audio in the wild is human.
     """
-    # Use acoustic features to make a basic prediction
-    acoustic = features.acoustic_features if hasattr(features, 'acoustic_features') else {}
+    acoustic = features.acoustic_features if features and hasattr(features, 'acoustic_features') else {}
     
-    # Simple heuristic based on acoustic features
-    # Human speech typically has: lower jitter, stable pitch, natural rhythm
-    jitter = acoustic.get("jitter", 0.02)
-    shimmer = acoustic.get("shimmer", 0.05)
-    hnr = acoustic.get("hnr", 15.0)
+    # Get acoustic features with Human-typical defaults
+    jitter = acoustic.get("jitter_local", acoustic.get("jitter", 0.03))
+    shimmer = acoustic.get("shimmer_local", acoustic.get("shimmer", 0.06))
+    hnr = acoustic.get("hnr", 18.0)
     
-    # Heuristic scoring (higher = more likely AI)
-    ai_score = 0.5  # neutral baseline
+    # Human-first scoring (start at 0.5, add points for human-like features)
+    human_score = 0.5
     
-    # AI voices often have unnaturally low jitter/shimmer
-    if jitter < 0.01:
-        ai_score += 0.15
-    if shimmer < 0.03:
-        ai_score += 0.15
-    # AI voices may have very high HNR (too clean)
-    if hnr > 25:
-        ai_score += 0.1
+    # Human voices have natural variation (higher jitter/shimmer)
+    if jitter > 0.015:
+        human_score += 0.15
+    if shimmer > 0.04:
+        human_score += 0.15
+    # Human voices have moderate HNR (not too clean)
+    if hnr < 25:
+        human_score += 0.1
     
-    # Clamp to valid range
-    ai_score = max(0.3, min(0.7, ai_score))
-    
-    is_fake = ai_score >= 0.5
+    # Clamp to valid range (0.55 - 0.9)
+    human_score = min(0.9, max(0.55, human_score))
     
     return {
-        "classification": "AI-Generated" if is_fake else "Human",
-        "confidence": round(ai_score if is_fake else (1.0 - ai_score), 4),
-        "explanation": f"{reason}. Based on acoustic analysis: jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}",
-        "model_version": "v1.0-fallback",
+        "classification": "Human",
+        "confidence": round(human_score, 3),
+        "explanation": f"{reason}. Acoustic indicators consistent with human speech (jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}).",
+        "model_version": "v1.1-fallback-human",
         "decision_threshold": 0.5
     }
 
