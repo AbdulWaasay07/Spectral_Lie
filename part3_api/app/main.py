@@ -90,18 +90,19 @@ app.include_router(router)
 async def global_exception_handler(request: Request, exc: Exception):
     from fastapi import HTTPException
     
-    # Detailed logging for Render
-    structlog.get_logger().error(
-        "unhandled_exception", 
-        error=str(exc), 
-        traceback=traceback.format_exc()
-    )
-    
+    # Check for HTTPException FIRST - these are intentional, not errors
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail}
         )
+    
+    # Only log truly unhandled exceptions
+    structlog.get_logger().error(
+        "unhandled_exception", 
+        error=str(exc), 
+        traceback=traceback.format_exc()
+    )
         
     return JSONResponse(
         status_code=500,

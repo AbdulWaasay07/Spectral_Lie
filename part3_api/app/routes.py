@@ -158,6 +158,9 @@ async def detect_voice_endpoint(
         raise HTTPException(status_code=e.status_code, detail=e.message)
         
     except Exception as e:
+        # CRITICAL: Re-raise HTTPException so FastAPI handles it properly (e.g., 408 timeout)
+        if isinstance(e, HTTPException):
+            raise
         metrics.ERRORS_TOTAL.labels(type="UnhandledException").inc()
         log.error("unhandled_error", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
