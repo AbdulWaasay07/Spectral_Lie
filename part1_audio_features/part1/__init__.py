@@ -1,5 +1,6 @@
 from typing import Optional
 import os
+import numpy as np
 
 from . import io, preprocess, features_acoustic, features_deep, bundle, config, utils
 

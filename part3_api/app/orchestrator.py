@@ -1,6 +1,7 @@
 import sys
 import os
 import structlog
+import numpy as np
 from .errors import FeatureExtractionError, InferenceError
 
 logger = structlog.get_logger()
@@ -100,42 +101,21 @@ def preload_models():
             # Don't set MODEL_LOADED if part2 fails
             return
 
-    # Warm-up inference to trigger all lazy components
+    # Warm-up: verify critical components are loaded
     try:
-        logger.info("starting_warmup_inference")
-        warmup_start = time.time()
+        logger.info("verifying_model_components")
         
-        # Create minimal synthetic audio (1 second of silence at 16kHz)
-        import base64
-        import io
-        import wave
-        import numpy as np
+        # Verify part2 models exist and are accessible
+        from part2 import utils as p2_utils
+        if p2_utils._MODEL is not None:
+            logger.info("model_verified", model_type=str(type(p2_utils._MODEL)))
+        if p2_utils._CALIBRATOR is not None:
+            logger.info("calibrator_verified")
         
-        # Generate 1 second of silence
-        sample_rate = 16000
-        duration = 1.0
-        samples = np.zeros(int(sample_rate * duration), dtype=np.int16)
-        
-        # Encode as WAV -> base64
-        buffer = io.BytesIO()
-        with wave.open(buffer, 'wb') as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(sample_rate)
-            wav_file.writeframes(samples.tobytes())
-        
-        buffer.seek(0)
-        warmup_audio_b64 = base64.b64encode(buffer.read()).decode('utf-8')
-        
-        # Run inference
-        _ = detect_voice(warmup_audio_b64, "en", "warmup-request")
-        
-        warmup_duration = time.time() - warmup_start
-        logger.info("warmup_inference_completed", duration_seconds=round(warmup_duration, 2))
+        logger.info("warmup_verification_completed")
         
     except Exception as e:
-        logger.warning("warmup_inference_failed", error=str(e))
-        # Continue anyway - warmup failure is not critical
+        logger.warning("warmup_verification_failed", error=str(e))
 
     global MODEL_LOADED
     MODEL_LOADED = True

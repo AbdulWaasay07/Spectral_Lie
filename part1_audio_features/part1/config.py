@@ -11,7 +11,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(os.path.dirname(BASE_DIR), "temp_audio")
 
 # Feature Extraction
-USE_DEEP_FEATURES = os.getenv("USE_DEEP_FEATURES", "False").lower() == "true"
+# CRITICAL: Default to False to avoid loading heavy wav2vec2 model
+_env_value = os.getenv("USE_DEEP_FEATURES", "false").lower()
+USE_DEEP_FEATURES = _env_value in ("true", "1", "yes")
+
+# Debug log
+print(f"[part1/config] USE_DEEP_FEATURES env='{os.getenv('USE_DEEP_FEATURES', 'NOT_SET')}' → {USE_DEEP_FEATURES}")
+
 N_MFCC = 13
 HOP_LENGTH = 512
 N_FFT = 2048
