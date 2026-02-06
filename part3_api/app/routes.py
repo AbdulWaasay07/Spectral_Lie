@@ -46,7 +46,7 @@ async def detect_voice_endpoint(
     
     try:
         # Cache check using MD5 for stable keys across worker restarts
-        cache_key = f"res:{hashlib.md5(req.audio_base_64.encode()).hexdigest()}"
+        cache_key = f"res:{hashlib.md5(req.audioBase64.encode()).hexdigest()}"
         
         if rate_limiter.redis_conn:
             try:
@@ -70,14 +70,14 @@ async def detect_voice_endpoint(
         # await check_rate_limit(api_key)
         
         # Validation checks on size 
-        if len(req.audio_base_64) * 0.75 > settings.MAX_AUDIO_SIZE_BYTES: # Adjusted for b64 encoding overhead
-             log.error("request_too_large", size=len(req.audio_base_64))
+        if len(req.audioBase64) * 0.75 > settings.MAX_AUDIO_SIZE_BYTES: # Adjusted for b64 encoding overhead
+             log.error("request_too_large", size=len(req.audioBase64))
              raise HTTPException(status_code=413, detail="Audio file too large")
 
         # Orchestration (CPU bound, run in threadpool)
         # Note: part1.extract_features does I/O but also CPU processing. 
         # part2.infer uses PyTorch which releases GIL mostly but still good to offload.
-        result = await run_in_threadpool(detect_voice, req.audio_base_64, req.language, request_id)
+        result = await run_in_threadpool(detect_voice, req.audioBase64, req.language, request_id)
         
         duration = time.time() - start_time
         
