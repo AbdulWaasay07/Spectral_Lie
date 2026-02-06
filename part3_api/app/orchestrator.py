@@ -5,6 +5,9 @@ from .errors import FeatureExtractionError, InferenceError
 
 logger = structlog.get_logger()
 
+# Global state
+MODEL_LOADED = False
+
 # --- Dynamic Path Setup for Local Dev ---
 # If running locally without pip install -e, we need to add sibling dirs to path
 # We assume this file is in d:/Spectral Lie/part3_api/app/orchestrator.py
@@ -83,3 +86,10 @@ def preload_models():
             logger.info("part2_model_preloaded")
         except Exception as e:
             logger.error("part2_preload_failed", error=str(e))
+
+    global MODEL_LOADED
+    MODEL_LOADED = True
+    logger.info("all_models_preloaded_status_set")
+
+def is_model_loaded():
+    return MODEL_LOADED

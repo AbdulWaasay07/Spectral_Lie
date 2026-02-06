@@ -31,6 +31,17 @@ async def root():
         "instructions": "Send a POST request to /detect-voice with x-api-key header and JSON body including language, audioFormat, and audioBase64."
     }
 
+@router.get("/")
+async def root():
+    return {"status": "alive", "service": "Spectral Lie Voice Detection API"}
+
+@router.get("/ready")
+async def readiness_probe():
+    from .orchestrator import is_model_loaded
+    if is_model_loaded():
+        return {"status": "ready", "model_loaded": True}
+    raise HTTPException(status_code=503, detail="Model not loaded yet")
+
 # Allow POST to both / and /detect-voice for compatibility with different testers
 @router.post("/", response_model=DetectResponse, include_in_schema=False)
 @router.post("/detect-voice", response_model=DetectResponse)
@@ -70,8 +81,10 @@ async def detect_voice_endpoint(
         # await check_rate_limit(api_key)
         
         # Validation checks on size 
-        if len(req.audioBase64) * 0.75 > settings.MAX_AUDIO_SIZE_BYTES: # Adjusted for b64 encoding overhead
-             log.error("request_too_large", size=len(req.audioBase64))
+        # Strict Fail-Fast: detailed check is expensive, so we check encoded size first
+        # Base64 is ~1.33x original size. 
+        if len(req.audioBase64) > settings.MAX_AUDIO_SIZE_BYTES:
+             log.error("request_too_large_fast_fail", size=len(req.audioBase64), limit=settings.MAX_AUDIO_SIZE_BYTES)
              raise HTTPException(status_code=413, detail="Audio file too large")
 
         # Orchestration (CPU bound, run in threadpool)
@@ -122,6 +135,8 @@ async def liveness():
 
 @router.get("/health/ready")
 async def readiness():
-    # Check Redis
-    # Check Model loaded (Part 2 usually loads lazy, maybe force check?)
-    return {"status": "ready"}
+    # Alias for /ready
+    from .orchestrator import is_model_loaded
+    if is_model_loaded():
+        return {"status": "ready"}
+    raise HTTPException(status_code=503, detail="Not ready")

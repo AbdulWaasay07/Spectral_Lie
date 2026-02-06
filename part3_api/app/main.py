@@ -29,8 +29,18 @@ async def startup_event():
     print("API Starting up...")
     try:
         from . import rate_limiter
+        from . import orchestrator
+        
+        # 1. Initialize Redis (Non-blocking usually)
         await rate_limiter.init_redis()
         print("Redis initialization attempted.")
+        
+        # 2. Preload Models (Blocking, but essential for first-request latency)
+        # On Render free tier, this might take 10-20s, but that's better than timeout on request
+        print("Preloading models...")
+        orchestrator.preload_models()
+        print("Models preloaded.")
+        
     except Exception as e:
         print(f"Startup warning: {e}")
 

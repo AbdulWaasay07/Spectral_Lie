@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60
     
     # Validation
-    MAX_AUDIO_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
+    MAX_AUDIO_SIZE_BYTES: int = 2 * 1024 * 1024  # 2 MB (Approx 10-15s high quality, enough to fail fast)
     MIN_DURATION_SECONDS: float = 1.0
     MAX_DURATION_SECONDS: float = 30.0
     
