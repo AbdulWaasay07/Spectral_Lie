@@ -6,11 +6,12 @@ services:
     dockerfilePath: part3_api/Dockerfile
     plan: free
     envVars:
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: cache
-          property: connectionString
+      # Redis is optional - API works without it
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: cache
+      #     property: connectionString
       - key: API_KEYS
         value: "test-key-123,development-key-456"
       - key: LOG_LEVEL
@@ -20,7 +21,9 @@ services:
       - key: USE_DEEP_FEATURES
         value: "False"
 
-  - type: redis
-    name: cache
-    plan: free
-    ipAllowList: [] # Internal only
+  # Redis (optional - for caching only)
+  # Commented out to allow standalone deployment
+  # - type: redis
+  #   name: cache
+  #   plan: free
+  #   ipAllowList: []

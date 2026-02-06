@@ -34,13 +34,16 @@ async def startup_event():
         from . import rate_limiter
         from . import orchestrator
         
-        # 1. Initialize Redis (Non-blocking usually)
-        await rate_limiter.init_redis()
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Redis initialization attempted.")
+        # 1. Initialize Redis (Optional - for caching only)
+        # If Redis fails, app continues without caching
+        try:
+            await rate_limiter.init_redis()
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Redis initialized (caching enabled)")
+        except Exception as e:
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Redis unavailable - continuing without caching: {e}")
         
-        # 2. Preload Models (Blocking, but essential for first-request latency)
-        # On Render free tier, this might take 10-20s, but that's better than timeout on request
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Preloading models...")
+        # 2. Preload Models (CRITICAL - must succeed)
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Preloading ML models...")
         preload_start = time.time()
         
         orchestrator.preload_models()

@@ -42,6 +42,8 @@ ENV MKL_NUM_THREADS=1
 ENV OPENBLAS_NUM_THREADS=1
 ENV VECLIB_MAXIMUM_THREADS=1
 ENV NUMEXPR_NUM_THREADS=1
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
 
 # Command to run the application (Gunicorn + Uvicorn)
 # Using 1 worker for absolute memory safety on 512MB Free tier.

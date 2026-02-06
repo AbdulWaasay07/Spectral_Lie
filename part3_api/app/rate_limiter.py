@@ -14,15 +14,23 @@ async def init_redis():
     global redis_conn
     if not settings.REDIS_URL:
         logger.warning("REDIS_URL_empty_skipping_initialization")
+        print("[INFO] No REDIS_URL configured - caching disabled")
         return
         
     try:
-        redis_conn = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        redis_conn = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,  # Fast timeout
+            socket_timeout=2
+        )
         await redis_conn.ping()
-        logger.info("redis_connected", url=settings.REDIS_URL)
+        logger.info("redis_connected")
+        print(f"[INFO] Redis connected - caching enabled")
     except Exception as e:
-        logger.error("redis_connection_failed", error=str(e))
-        redis_conn = None # Ensure it's None if connection failed
+        logger.warning("redis_connection_failed_continuing_without_cache", error=str(e))
+        print(f"[INFO] Redis unavailable - continuing without caching: {e}")
+        redis_conn = None  # Ensure it's None if connection failed
 
 async def close_redis():
     global redis_conn
