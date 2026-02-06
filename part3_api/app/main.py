@@ -1,3 +1,9 @@
+# Suppress warnings before any imports
+import warnings
+warnings.filterwarnings("ignore")
+import os
+os.environ["PYTHONWARNINGS"] = "ignore"
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import structlog

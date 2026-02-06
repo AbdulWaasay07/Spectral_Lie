@@ -1,3 +1,7 @@
+# Suppress all warnings from audio/ML libraries
+import warnings
+warnings.filterwarnings("ignore")
+
 import sys
 import os
 import structlog

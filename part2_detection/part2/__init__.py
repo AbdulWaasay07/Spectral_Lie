@@ -1,3 +1,7 @@
+# Suppress torch/numpy warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 from typing import Dict, Any, Union
 import torch
 import numpy as np

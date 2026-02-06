@@ -1,3 +1,7 @@
+# Suppress librosa/scipy/numpy warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 from typing import Optional
 import os
 import numpy as np
