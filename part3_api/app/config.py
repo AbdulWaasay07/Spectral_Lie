@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     # For buildathon, we accept a single key or a comma-separated list
     API_KEYS: str = "test-key-123" 
     
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Redis (optional - for caching only)
+    # Default to empty to prevent connection attempts when not configured
+    REDIS_URL: str = ""  # Set via env var if Redis available
     RATE_LIMIT_PER_MINUTE: int = 60
     
     # Validation (Tightened for Render CPU constraints)
