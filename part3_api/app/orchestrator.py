@@ -67,6 +67,9 @@ def preload_models():
     Triggers lazy loading of models in part1 and part2.
     Called on API startup.
     """
+    import time
+    start_time = time.time()
+    
     if part1:
         try:
             from part1 import config as p1_config
@@ -83,13 +86,62 @@ def preload_models():
         try:
             from part2.utils import load_artifacts
             load_artifacts()
-            logger.info("part2_model_preloaded")
+            
+            # Verify models are actually loaded
+            from part2 import utils as p2_utils
+            if p2_utils._MODEL is None or p2_utils._CALIBRATOR is None:
+                raise RuntimeError("part2 models failed to load despite no exception")
+            
+            logger.info("part2_model_preloaded", 
+                       model_loaded=p2_utils._MODEL is not None,
+                       calibrator_loaded=p2_utils._CALIBRATOR is not None)
         except Exception as e:
             logger.error("part2_preload_failed", error=str(e))
+            # Don't set MODEL_LOADED if part2 fails
+            return
+
+    # Warm-up inference to trigger all lazy components
+    try:
+        logger.info("starting_warmup_inference")
+        warmup_start = time.time()
+        
+        # Create minimal synthetic audio (1 second of silence at 16kHz)
+        import base64
+        import io
+        import wave
+        import numpy as np
+        
+        # Generate 1 second of silence
+        sample_rate = 16000
+        duration = 1.0
+        samples = np.zeros(int(sample_rate * duration), dtype=np.int16)
+        
+        # Encode as WAV -> base64
+        buffer = io.BytesIO()
+        with wave.open(buffer, 'wb') as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(samples.tobytes())
+        
+        buffer.seek(0)
+        warmup_audio_b64 = base64.b64encode(buffer.read()).decode('utf-8')
+        
+        # Run inference
+        _ = detect_voice(warmup_audio_b64, "en", "warmup-request")
+        
+        warmup_duration = time.time() - warmup_start
+        logger.info("warmup_inference_completed", duration_seconds=round(warmup_duration, 2))
+        
+    except Exception as e:
+        logger.warning("warmup_inference_failed", error=str(e))
+        # Continue anyway - warmup failure is not critical
 
     global MODEL_LOADED
     MODEL_LOADED = True
-    logger.info("all_models_preloaded_status_set")
+    
+    total_duration = time.time() - start_time
+    logger.info("all_models_preloaded", total_startup_seconds=round(total_duration, 2))
 
 def is_model_loaded():
     return MODEL_LOADED

@@ -31,10 +31,6 @@ async def root():
         "instructions": "Send a POST request to /detect-voice with x-api-key header and JSON body including language, audioFormat, and audioBase64."
     }
 
-@router.get("/")
-async def root():
-    return {"status": "alive", "service": "Spectral Lie Voice Detection API"}
-
 @router.get("/ready")
 async def readiness_probe():
     from .orchestrator import is_model_loaded
@@ -87,10 +83,46 @@ async def detect_voice_endpoint(
              log.error("request_too_large_fast_fail", size=len(req.audioBase64), limit=settings.MAX_AUDIO_SIZE_BYTES)
              raise HTTPException(status_code=413, detail="Audio file too large")
 
-        # Orchestration (CPU bound, run in threadpool)
-        # Note: part1.extract_features does I/O but also CPU processing. 
-        # part2.infer uses PyTorch which releases GIL mostly but still good to offload.
-        result = await run_in_threadpool(detect_voice, req.audioBase64, req.language, request_id)
+        # Early duration validation (decode and check before expensive processing)
+        try:
+            import base64
+            import io
+            import wave
+            audio_bytes = base64.b64decode(req.audioBase64)
+            
+            # Quick duration check for WAV files
+            try:
+                with wave.open(io.BytesIO(audio_bytes), 'rb') as wav:
+                    duration = wav.getnframes() / wav.getframerate()
+                    if duration < settings.MIN_DURATION_SECONDS or duration > settings.MAX_DURATION_SECONDS:
+                        log.warning("invalid_audio_duration", duration=duration)
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Audio duration must be between {settings.MIN_DURATION_SECONDS}s and {settings.MAX_DURATION_SECONDS}s"
+                        )
+            except wave.Error:
+                # Not a WAV file, might be MP3 - skip duration check and let part1 handle it
+                pass
+                
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise
+            log.warning("audio_validation_failed", error=str(e))
+            # Continue if validation fails - not critical
+
+        # Orchestration with timeout protection (CPU bound, run in threadpool)
+        # Wrap in timeout to prevent hanging beyond Render's limits
+        import asyncio
+        try:
+            # 8 second timeout - leaves buffer for network/overhead before Render's timeout
+            result = await asyncio.wait_for(
+                run_in_threadpool(detect_voice, req.audioBase64, req.language, request_id),
+                timeout=8.0
+            )
+        except asyncio.TimeoutError:
+            log.error("request_timeout", request_id=request_id)
+            metrics.ERRORS_TOTAL.labels(type="TimeoutError").inc()
+            raise HTTPException(status_code=408, detail="Request processing timeout")
         
         duration = time.time() - start_time
         

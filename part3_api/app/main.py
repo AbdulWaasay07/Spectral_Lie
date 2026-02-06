@@ -26,23 +26,41 @@ app = FastAPI(
 # (Snippet of the current main.py on your machine)
 @app.on_event("startup")
 async def startup_event():
-    print("API Starting up...")
+    import time
+    startup_start = time.time()
+    print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] API Starting up...")
+    
     try:
         from . import rate_limiter
         from . import orchestrator
         
         # 1. Initialize Redis (Non-blocking usually)
         await rate_limiter.init_redis()
-        print("Redis initialization attempted.")
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Redis initialization attempted.")
         
         # 2. Preload Models (Blocking, but essential for first-request latency)
         # On Render free tier, this might take 10-20s, but that's better than timeout on request
-        print("Preloading models...")
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Preloading models...")
+        preload_start = time.time()
+        
         orchestrator.preload_models()
-        print("Models preloaded.")
+        
+        preload_duration = time.time() - preload_start
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Models preloaded in {preload_duration:.2f}s")
+        
+        # Verify models are ready
+        if not orchestrator.is_model_loaded():
+            raise RuntimeError("Model loading failed - API cannot serve requests")
+        
+        total_startup = time.time() - startup_start
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ✓ Startup complete in {total_startup:.2f}s - Ready to serve requests")
         
     except Exception as e:
-        print(f"Startup warning: {e}")
+        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] ✗ STARTUP FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        # Re-raise to prevent unhealthy container from accepting traffic
+        raise
 
 @app.on_event("shutdown")
 async def shutdown_event():

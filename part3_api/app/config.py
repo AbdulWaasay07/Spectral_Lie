@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     RATE_LIMIT_PER_MINUTE: int = 60
     
-    # Validation
-    MAX_AUDIO_SIZE_BYTES: int = 2 * 1024 * 1024  # 2 MB (Approx 10-15s high quality, enough to fail fast)
+    # Validation (Tightened for Render CPU constraints)
+    MAX_AUDIO_SIZE_BYTES: int = 1 * 1024 * 1024  # 1 MB (ensures fast processing on CPU)
     MIN_DURATION_SECONDS: float = 1.0
-    MAX_DURATION_SECONDS: float = 30.0
+    MAX_DURATION_SECONDS: float = 10.0  # Reduced from 30s to guarantee <8s response time
     
     # Model Paths (optional, can fallback to hardcoded defaults in Part 1/2)
     # These env vars allow us to override paths if needed in Docker

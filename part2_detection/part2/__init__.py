@@ -22,8 +22,11 @@ def infer(features: FeatureBundle) -> Dict[str, Any]:
     Input: FeatureBundle (part1 output)
     Output: DetectionResult JSON
     """
-    # 1. Load resources (lazy)
-    utils.load_artifacts()
+    # 1. Verify models are loaded (should be loaded at startup via orchestrator.preload_models())
+    if utils._MODEL is None or utils._CALIBRATOR is None:
+        raise RuntimeError(
+            "Models not loaded. Ensure orchestrator.preload_models() was called at startup."
+        )
     
     # 2. Preprocess
     # Note: real robustness requires checking input dimensions against model expectation
