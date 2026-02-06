@@ -15,8 +15,11 @@ TEMP_DIR = os.path.join(os.path.dirname(BASE_DIR), "temp_audio")
 _env_value = os.getenv("USE_DEEP_FEATURES", "false").lower()
 USE_DEEP_FEATURES = _env_value in ("true", "1", "yes")
 
-# Debug log
-print(f"[part1/config] USE_DEEP_FEATURES env='{os.getenv('USE_DEEP_FEATURES', 'NOT_SET')}' → {USE_DEEP_FEATURES}")
+# Log configuration (safe for production)
+import sys
+sys.stderr.write(f"[part1/config] USE_DEEP_FEATURES={USE_DEEP_FEATURES}\n")
+sys.stderr.flush()
+
 
 N_MFCC = 13
 HOP_LENGTH = 512
