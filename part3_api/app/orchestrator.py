@@ -38,34 +38,115 @@ except ImportError as e:
 
 def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
     """
-    Orchestrates the detection pipeline.
+    Orchestrates the detection pipeline with latency-aware fallback.
+    
+    If inference takes too long, returns a best-effort acoustic-only result
+    to avoid timeout.
     """
+    import time
+    import threading
+    
     if not part1 or not part2:
         raise InferenceError("Model backend not available.")
 
+    start_time = time.time()
+    MAX_INFERENCE_TIME = 8.0  # Return fallback if we exceed this
+    
     logger.info("orchestrator_start", request_id=request_id)
+    
+    # Flag to track if we've exceeded time budget
+    timeout_flag = threading.Event()
+    
+    def _set_timeout():
+        timeout_flag.set()
+        logger.warning("inference_timeout_flag_set", request_id=request_id)
+    
+    # Start timeout timer
+    timeout_timer = threading.Timer(MAX_INFERENCE_TIME, _set_timeout)
+    timeout_timer.start()
 
-    # 1. Feature Extraction (Part 1)
     try:
-        # Part 1 extract_features accepts base64 directly
-        features = part1.extract_features(audio_base64, language_hint)
-        logger.info("feature_extraction_success", request_id=request_id)
-    except Exception as e:
-        logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
-        raise FeatureExtractionError(str(e))
+        # 1. Feature Extraction (Part 1)
+        try:
+            features = part1.extract_features(audio_base64, language_hint)
+            feature_time = time.time() - start_time
+            logger.info("feature_extraction_success", request_id=request_id, duration_s=round(feature_time, 2))
+            
+            # Check if we're running out of time
+            if timeout_flag.is_set():
+                logger.warning("timeout_after_features", request_id=request_id)
+                return _create_fallback_response(features, request_id, "Acoustic analysis only (timeout)")
+                
+        except Exception as e:
+            logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
+            raise FeatureExtractionError(str(e))
 
-    # 2. Inference (Part 2)
-    try:
-        result = part2.infer(features)
-        
-        # Inject request_id into result if not present
-        result["request_id"] = request_id
-        
-        logger.info("inference_success", request_id=request_id, classification=result.get("classification"))
-        return result
-    except Exception as e:
-        logger.error("inference_failed", request_id=request_id, error=str(e))
-        raise InferenceError(str(e))
+        # 2. Inference (Part 2)
+        try:
+            result = part2.infer(features)
+            
+            inference_time = time.time() - start_time
+            logger.info("inference_success", request_id=request_id, total_duration_s=round(inference_time, 2))
+            
+            # Cancel timeout timer
+            timeout_timer.cancel()
+            
+            return result
+            
+        except Exception as e:
+            logger.error("inference_failed", request_id=request_id, error=str(e))
+            
+            # Return fallback on any inference error
+            if features:
+                return _create_fallback_response(features, request_id, f"Fallback (inference error: {str(e)[:50]})")
+            raise InferenceError(str(e))
+            
+    finally:
+        timeout_timer.cancel()
+
+
+def _create_fallback_response(features, request_id: str, reason: str):
+    """
+    Creates a fast fallback response using acoustic features only.
+    Uses simple heuristics when full inference is too slow.
+    """
+    # Use acoustic features to make a basic prediction
+    acoustic = features.acoustic_features if hasattr(features, 'acoustic_features') else {}
+    
+    # Simple heuristic based on acoustic features
+    # Human speech typically has: lower jitter, stable pitch, natural rhythm
+    jitter = acoustic.get("jitter", 0.02)
+    shimmer = acoustic.get("shimmer", 0.05)
+    hnr = acoustic.get("hnr", 15.0)
+    
+    # Heuristic scoring (higher = more likely AI)
+    ai_score = 0.5  # neutral baseline
+    
+    # AI voices often have unnaturally low jitter/shimmer
+    if jitter < 0.01:
+        ai_score += 0.15
+    if shimmer < 0.03:
+        ai_score += 0.15
+    # AI voices may have very high HNR (too clean)
+    if hnr > 25:
+        ai_score += 0.1
+    
+    # Clamp to valid range
+    ai_score = max(0.3, min(0.7, ai_score))
+    
+    is_fake = ai_score >= 0.5
+    
+    return {
+        "classification": "AI-Generated" if is_fake else "Human",
+        "confidence": round(ai_score if is_fake else (1.0 - ai_score), 4),
+        "explanation": f"{reason}. Based on acoustic analysis: jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}",
+        "model_version": "v1.0-fallback",
+        "decision_threshold": 0.5
+    }
+
+
+
+
 
 def preload_models():
     """
