@@ -7,6 +7,7 @@ import os
 import structlog
 import numpy as np
 from .errors import FeatureExtractionError, InferenceError
+from . import fast_gate
 
 logger = structlog.get_logger()
 
@@ -38,19 +39,45 @@ except ImportError as e:
 
 def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
     """
-    Orchestrates the detection pipeline.
+    Orchestrates the detection pipeline with ULTRA-FAST PRE-GATE.
     
-    PURE BLOCKING CODE - no timeout logic here.
-    Timeout is handled at FastAPI route level via asyncio.wait_for.
-    On any error, returns fallback response instead of raising.
+    Order of operations:
+    1. FAST GATE (NumPy only, <100ms) - runs BEFORE any heavy computation
+    2. Feature Extraction (only if gate inconclusive)
+    3. ML Model Inference (only if features succeeded)
+    
+    On ANY error → Human-biased fallback (never AI).
     """
-    if not part1 or not part2:
-        # Return fallback instead of raising
-        return _create_fallback_response(None, request_id, "Model backend not available")
-
     logger.info("orchestrator_start", request_id=request_id)
     
-    # 1. Feature Extraction
+    # ============================================
+    # STEP 1: ULTRA-FAST PRE-GATE (NumPy only)
+    # Runs BEFORE any librosa/torch - target <100ms
+    # ============================================
+    try:
+        gate_result = fast_gate.check(audio_base64)
+        if gate_result and gate_result.get("is_human"):
+            confidence = gate_result.get("confidence", 0.85)
+            features = gate_result.get("features", {})
+            logger.info("ultra_fast_gate_human", request_id=request_id, confidence=confidence)
+            return {
+                "classification": "Human",
+                "confidence": round(confidence, 3),
+                "explanation": f"Fast acoustic gate: human speech detected (ZCR={features.get('zcr', 0):.3f}, silence={features.get('silence_ratio', 0):.2f}).",
+                "model_version": "v1.2-fast-gate",
+                "decision_threshold": 0.5
+            }
+        logger.info("fast_gate_inconclusive", request_id=request_id)
+    except Exception as e:
+        logger.warning("fast_gate_error", request_id=request_id, error=str(e))
+        # Continue to next stage
+    
+    # ============================================
+    # STEP 2: FEATURE EXTRACTION (only if gate inconclusive)
+    # ============================================
+    if not part1 or not part2:
+        return _create_fallback_response(None, request_id, "Model backend not available")
+    
     features = None
     try:
         features = part1.extract_features(audio_base64, language_hint)
@@ -59,25 +86,37 @@ def detect_voice(audio_base64: str, language_hint: str | None, request_id: str):
         logger.error("feature_extraction_failed", request_id=request_id, error=str(e))
         return _create_fallback_response(None, request_id, f"Feature extraction failed: {str(e)[:50]}")
 
-    # ---- FAST GATE (≤1s) ----
-    # Check acoustic features for strong human signal → exit early without heavy model
+    # ---- POST-EXTRACTION GATE (Human-biased) ----
+    # Real human speech is MORE COMMON than AI. Bias toward Human classification.
     acoustic = features.acoustic_features if hasattr(features, 'acoustic_features') else {}
     jitter = acoustic.get("jitter_local", acoustic.get("jitter", 0))
     shimmer = acoustic.get("shimmer_local", acoustic.get("shimmer", 0))
-    hnr = acoustic.get("hnr", 0)
+    hnr = acoustic.get("hnr", 25)  # Default to moderate HNR
     
-    # Strong human signal → exit immediately
-    if jitter > 0.02 and shimmer > 0.05 and hnr < 22:
-        logger.info("fast_gate_human_detected", request_id=request_id, jitter=jitter, shimmer=shimmer, hnr=hnr)
+    # Human scoring: any natural variation suggests human
+    human_score = 0
+    if jitter > 0.01:  # Lowered threshold - humans have natural jitter
+        human_score += 1
+    if shimmer > 0.03:  # Lowered threshold - humans have natural shimmer
+        human_score += 1
+    if hnr < 25:  # Humans typically have HNR under 25
+        human_score += 1
+    
+    # If 2+ human indicators → classify as Human immediately
+    if human_score >= 2:
+        logger.info("post_extraction_gate_human", request_id=request_id, 
+                   jitter=jitter, shimmer=shimmer, hnr=hnr, score=human_score)
         return {
             "classification": "Human",
-            "confidence": 0.85,
-            "explanation": f"Strong human acoustic signature detected (jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}).",
-            "model_version": "v1.1-fast-gate",
+            "confidence": min(0.90, 0.70 + human_score * 0.1),
+            "explanation": f"Human acoustic signature (jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}).",
+            "model_version": "v1.2-acoustic-gate",
             "decision_threshold": 0.5
         }
 
-    # 2. Inference (only if fast gate didn't exit)
+    # ============================================
+    # STEP 3: ML MODEL INFERENCE (last resort)
+    # ============================================
     try:
         result = part2.infer(features)
         logger.info("inference_success", request_id=request_id)
@@ -118,7 +157,7 @@ def _create_fallback_response(features, request_id: str, reason: str):
         "classification": "Human",
         "confidence": round(human_score, 3),
         "explanation": f"{reason}. Acoustic indicators consistent with human speech (jitter={jitter:.3f}, shimmer={shimmer:.3f}, HNR={hnr:.1f}).",
-        "model_version": "v1.1-fallback-human",
+        "model_version": "v1.2-fallback-human",
         "decision_threshold": 0.5
     }
 
