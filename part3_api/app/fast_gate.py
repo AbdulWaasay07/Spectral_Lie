@@ -171,6 +171,40 @@ def check(audio_base64: str) -> dict | None:
             "features": features
         }
     
+    # Step 5: AI speech detection
+    # AI-generated speech typically has:
+    # - Very low RMS variance (too stable/uniform energy)
+    # - Very low ZCR (over-smoothed waveform)
+    # - Very low silence ratio (continuous, no natural pauses)
+    AI_RMS_VARIANCE_MAX = 0.0005  # AI is too stable
+    AI_ZCR_MAX = 0.015           # AI is over-smoothed
+    AI_SILENCE_RATIO_MAX = 0.15  # AI has fewer natural pauses
+    
+    is_likely_ai = (
+        features["rms_variance"] < AI_RMS_VARIANCE_MAX and
+        features["zcr"] < AI_ZCR_MAX and
+        features["silence_ratio"] < AI_SILENCE_RATIO_MAX
+    )
+    
+    if is_likely_ai:
+        # Calculate confidence based on how strongly features indicate AI
+        confidence = 0.75
+        if features["rms_variance"] < 0.0002:
+            confidence += 0.05
+        if features["zcr"] < 0.01:
+            confidence += 0.05
+        if features["silence_ratio"] < 0.1:
+            confidence += 0.05
+        
+        confidence = min(0.90, confidence)
+        
+        log.info("fast_gate_ai_detected", confidence=confidence)
+        return {
+            "is_human": False,
+            "confidence": confidence,
+            "features": features
+        }
+    
     # Not confident - fall through to heavy processing
     log.info("fast_gate_inconclusive")
     return None
